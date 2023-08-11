@@ -28,14 +28,12 @@ def main():
 def get_args():
 
     parser = argparse.ArgumentParser(
-        prog='interactions.py',
+        prog='so4t_interactions.py',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description='Grab data from Stack Overflow for Teams and create \
         a chord diagram of cross-silo interactions',
         epilog = 'Usage examples: \n'
-                'python3 interactions.py --url "https://stackoverflowteams.com/c/TEAM-NAME" '
-                '--key "YOUR_KEY" \n'
-                'python3 interactions.py --url "https://SUBDOMAIN.stackenterprise.co" '
+                'python3 so4t_interactions.py --url "https://SUBDOMAIN.stackenterprise.co" '
                 '--key "YOUR_KEY" \n\n')
     parser.add_argument('--url', 
                         type=str, 
@@ -56,9 +54,6 @@ def data_collector(args):
     users = get_users(base_url, client)
     questions = client.get_all_questions(
         filter_id='!-(C9p6W5zHzR.xzw(UcCeR(6Z.YqYklUgN-bcu69o-O71EcDlgKKXF)q3H')
-    
-    export_to_json('users', users)
-    export_to_json('questions', questions)
     
     return users, questions
 
@@ -211,18 +206,6 @@ def get_page_count(s, url):
     page_count = int(pagination[-2].text)
 
     return page_count
-
-
-def export_to_json(data_name, data):
-    file_name = data_name + '.json'
-    directory = 'data'
-
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    file_path = os.path.join(directory, file_name)
-
-    with open(file_path, 'w') as f:
-        json.dump(data, f)
 
 
 def data_processor(users, questions):
@@ -451,6 +434,16 @@ def get_scim_users(scim_token):
             break
 
     return items
+
+
+def export_to_json(data_name, data):
+
+    file_name = f"{data_name}.json"
+
+    with open(file_name, 'w') as f:
+        json.dump(data, f)
+
+    print(f"{file_name} has been created in the current working directory.")
 
 
 if __name__ == '__main__':
