@@ -7,6 +7,7 @@ This script is offered with no formal support from Stack Overflow. If you run in
 
 ## Requirements
 * Stack Overflow Enterprise and a user account with admin permissions
+* "Department" assertion enabled in SAML configuration (admin settings)
 * Python 3.x ([download](https://www.python.org/downloads/))
 * Operating system: Linux, MacOS, or Windows
 * Chrome web browser
