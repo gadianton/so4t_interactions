@@ -12,9 +12,7 @@ import time
 # Third-party library imports
 import requests
 import pandas as pd
-from bs4 import BeautifulSoup
 from d3blocks import D3Blocks
-from selenium import webdriver
 
 
 def main():
@@ -28,14 +26,12 @@ def main():
 def get_args():
 
     parser = argparse.ArgumentParser(
-        prog='interactions.py',
+        prog='so4t_interactions.py',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description='Grab data from Stack Overflow for Teams and create \
+        description='Obtain data from Stack Overflow for Teams and create \
         a chord diagram of cross-silo interactions',
         epilog = 'Usage examples: \n'
-                'python3 interactions.py --url "https://stackoverflowteams.com/c/TEAM-NAME" '
-                '--key "YOUR_KEY" \n'
-                'python3 interactions.py --url "https://SUBDOMAIN.stackenterprise.co" '
+                'python3 so4t_interactions.py --url "https://SUBDOMAIN.stackenterprise.co" '
                 '--key "YOUR_KEY" \n\n')
     parser.add_argument('--url', 
                         type=str, 
@@ -49,184 +45,191 @@ def get_args():
 
 def data_collector(args):
 
-    base_url = args.url
-    key = args.key
+    client = V2Client(args)
+    users = client.get_users()
 
-    client = TeamsClient(base_url, key)
-    users = get_users(base_url, client)
-    questions = client.get_all_questions(
-        filter_id='!-(C9p6W5zHzR.xzw(UcCeR(6Z.YqYklUgN-bcu69o-O71EcDlgKKXF)q3H')
-    
-    export_to_json('users', users)
-    export_to_json('questions', questions)
+    # Create a filter to get additional data fields for questions/answers/comments
+    filter_attributes = [
+        "answer.body",
+        "answer.comment_count",
+        "answer.comments",
+        "answer.down_vote_count",
+        "answer.link",
+        "answer.up_vote_count",
+        "comment.body",
+        "comment.link",
+        "question.answers",
+        "question.body",
+        "question.comment_count",
+        "question.comments",
+        "question.down_vote_count",
+        "question.link",
+        "question.up_vote_count",
+    ]
+    filter_string = client.create_filter(filter_attributes)
+    questions = client.get_all_questions(filter_string)
     
     return users, questions
 
 
-class TeamsClient(object):
+class V2Client(object):
 
-    def __init__(self, base_url, api_key):
+    def __init__(self, args):
 
-        if "stackoverflowteams.com" in base_url:
+        if not args.url:
+            print("Missing required argument. Please provide a URL.")
+            print("See --help for more information")
+            raise SystemExit
+        
+        if "stackoverflowteams.com" in args.url:
+            self.soe = False
             self.api_url = "https://api.stackoverflowteams.com/2.3"
-            self.team_slug = base_url.split("https://stackoverflowteams.com/c/")[1]
-            self.token = api_key
+            self.team_slug = args.url.split("https://stackoverflowteams.com/c/")[1]
+            self.token = args.token
             self.api_key = None
+            self.headers = {'X-API-Access-Token': self.token}
+            if not self.token:
+                print("Missing required argument. Please provide an API token.")
+                print("See --help for more information")
+                raise SystemExit
         else:
-            self.api_url = base_url + "/api/2.3"
+            self.soe = True
+            self.api_url = args.url + "/api/2.3"
             self.team_slug = None
             self.token = None
-            self.api_key = api_key
+            self.api_key = args.key
+            self.headers = {'X-API-Key': self.api_key}
+            if not self.api_key:
+                print("Missing required argument. Please provide an API key.")
+                print("See --help for more information")
+                raise SystemExit
+
+        self.ssl_verify = self.test_connection()
 
 
-    def get_all_questions(self, filter_id=''):
+    def test_connection(self):
 
-        endpoint = "/questions"
-        endpoint_url = self.api_url + endpoint
-    
-        return self.get_items(endpoint_url, filter_id)
+        url = self.api_url + "/tags"
+        ssl_verify = True
 
-
-    def get_all_users(self, filter_id=''):
-
-        endpoint = "/users"
-        endpoint_url = self.api_url + endpoint
-
-        return self.get_items(endpoint_url, filter_id)
-
-
-    def get_items(self, endpoint_url, filter_id):
-        
-        params = {
-            'page': 1,
-            'pagesize': 100,
-        }
-        if filter_id:
-            params['filter'] = filter_id
-
+        params = {}
         if self.token:
             headers = {'X-API-Access-Token': self.token}
             params['team'] = self.team_slug
         else:
             headers = {'X-API-Key': self.api_key}
 
+        print("Testing API 2.3 connection...")
+        try:
+            response = requests.get(url, params=params, headers=headers)
+        except requests.exceptions.SSLError:
+            print("SSL error. Trying again without SSL verification...")
+            response = requests.get(url, params=params, headers=headers, verify=False)
+            ssl_verify = False
+        
+        if response.status_code == 200:
+            print("API connection successful")
+            return ssl_verify
+        else:
+            print("Unable to connect to API. Please check your URL and API key.")
+            print(response.text)
+            raise SystemExit
+
+
+    def get_all_questions(self, filter_string=''):
+
+        endpoint = "/questions"
+        endpoint_url = self.api_url + endpoint
+
+        params = {
+            'page': 1,
+            'pagesize': 100,
+        }
+        if filter_string:
+            params['filter'] = filter_string
+    
+        return self.get_items(endpoint_url, params)
+
+
+    def get_users(self, filter_string=''):
+            
+            endpoint = "/users"
+            endpoint_url = self.api_url + endpoint
+    
+            params = {
+                'page': 1,
+                'pagesize': 100,
+            }
+            if filter_string:
+                params['filter'] = filter_string
+    
+            return self.get_items(endpoint_url, params)
+    
+
+    def create_filter(self, filter_attributes='', base='default'):
+        # filter_attributes should be a list variable containing strings of the attributes
+        # base can be 'default', 'withbody', 'none', or 'total'
+
+        endpoint = "/filters/create"
+        endpoint_url = self.api_url + endpoint
+
+        params = {
+            'base': base,
+            'unsafe': False
+        }
+
+        if filter_attributes:
+            # convert to semi-colon separated string
+            params['include'] = ';'.join(filter_attributes)
+
+        filter_string = self.get_items(endpoint_url, params)[0]['filter']
+        print(f"Filter created: {filter_string}")
+
+        return filter_string
+
+
+    def get_items(self, endpoint_url, params={}):
+
+        if not self.soe: # SO Basic and Business instances require a team slug in the params
+            params['team'] = self.team_slug
 
         items = []
         while True: # Keep performing API calls until all items are received
-            print(f"Getting page {params['page']} from {endpoint_url}")
-            response = requests.get(endpoint_url, headers=headers, params=params)
+            if params.get('page'):
+                print(f"Getting page {params['page']} from {endpoint_url}")
+            else:
+                print(f"Getting API data from {endpoint_url}")
+            response = requests.get(endpoint_url, headers=self.headers, params=params, 
+                                    verify=self.ssl_verify)
+            
             if response.status_code != 200:
+                # Many API call failures result in an HTTP 400 status code (Bad Request)
+                # To understand the reason for the 400 error, specific API error codes can be 
+                # found here: https://api.stackoverflowteams.com/docs/error-handling
                 print(f"/{endpoint_url} API call failed with status code: {response.status_code}.")
                 print(response.text)
                 print(f"Failed request URL and params: {response.request.url}")
-                break
+                raise SystemExit
 
-            items_data = response.json().get('items')
-            items += items_data
-            if not response.json().get('has_more'):
+            items += response.json().get('items')
+            if not response.json().get('has_more'): # If there are no more items, break the loop
                 break
 
             # If the endpoint gets overloaded, it will send a backoff request in the response
-            # Failure to backoff will result in a 502 Error
+            # Failure to backoff will result in a 502 error (throttle_violation)
             if response.json().get('backoff'):
-                print("Backoff request received from endpoint. Waiting 15 seconds...")
-                time.sleep(15)
+                backoff_time = response.json().get('backoff') + 1
+                print(f"API backoff request received. Waiting {backoff_time} seconds...")
+                time.sleep(backoff_time)
+
             params['page'] += 1
 
         return items
 
 
-def get_users(base_url, client):
-
-    s = create_session(base_url)
-    users = client.get_all_users()
-
-    ### REMOVE THIS LINE WHEN DONE TESTING ###
-    users = [user for user in users if user['user_id'] > 28000]
-
-    no_org_count = 0
-    start_time = time.time()
-    for user in users:
-        user_url = f"{base_url}/users/{user['user_id']}"
-
-        print(f'Getting user info for {user_url}')
-        response = s.get(user_url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        title_org = soup.find('div', {'class': 'mb8 fc-light fs-title lh-xs'})
-        try:
-            user['organization'] = title_org.text.split(', ')[-1]
-        except AttributeError: # if no title/org returned, `text` method will not work on None
-            no_org_count += 1
-            user['organization'] = None
-        except IndexError: # if using old title format
-            no_org_count += 1
-            user['organization'] = None
-    
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-
-    # 116 seconds to get 531 users on SO Business (0.218 seconds per user)
-    # 8332 seconds (2.33 hours) to get 20493 users on SO Enterprise (0.407 seconds per user)
-    print('*************************************************************************************')
-    print(f"It took {elapsed_time} seconds to get info for {len(users)} users")
-    print(f"{no_org_count} users had no documented organization")
-    print('*************************************************************************************')
-    
-    return users
-
-
-def create_session(base_url):
-
-    options = webdriver.ChromeOptions()
-    options.add_argument("--window-size=500,800")
-    options.add_experimental_option("excludeSwitches", ['enable-automation'])
-    driver = webdriver.Chrome(options=options)
-    driver.get(base_url)
-
-    # Test again now that I fixed the find_element problem
-    while True:
-        try:
-            # element names for selenium: https://selenium-python.readthedocs.io/locating-elements.html
-            driver.find_element("class name", "s-user-card")
-            break
-        except:
-            time.sleep(1)
-    
-    # pass cookies to requests
-    cookies = driver.get_cookies()
-    s = requests.Session()
-    for cookie in cookies:
-        s.cookies.set(cookie['name'], cookie['value'])
-    driver.close()
-    driver.quit()
-    
-    return s
-
-
-def get_page_count(s, url):
-
-    response = s.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    pagination = soup.find_all('a', {'class': 's-pagination--item js-pagination-item'})
-    page_count = int(pagination[-2].text)
-
-    return page_count
-
-
-def export_to_json(data_name, data):
-    file_name = data_name + '.json'
-    directory = 'data'
-
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    file_path = os.path.join(directory, file_name)
-
-    with open(file_path, 'w') as f:
-        json.dump(data, f)
-
-
 def data_processor(users, questions):
 
+    users = get_user_departments(users)
     interaction_data, untracked_interactions = create_interaction_data(questions, users, questions)
     print(f"Number of interactions not tracked due to deleted users: {untracked_interactions}")
 
@@ -234,7 +237,23 @@ def data_processor(users, questions):
 
     return interaction_matrix
 
-# Need to split this into smaller functions
+
+def get_user_departments(users):
+    # User name + department looks like this: "Last, First (Department-Group)))"
+
+    no_org_count = 0
+    for user in users:
+        user['organization'] = user['display_name'].split('(')[-1].split('-')[0]
+        if user['organization'] == user['display_name']:
+            user['organization'] = None
+            no_org_count += 1
+    
+    print(f"{no_org_count} users had no documented organization")
+
+    return users
+
+
+# Should probably split this into smaller functions
 def create_interaction_data(content_list, users, questions):
 
     interaction_data = []
@@ -421,67 +440,15 @@ def create_chord_diagram(interaction_matrix):
     print("Chord diagram created. You can find it in the current working directory.")
 
 
-# Waiting on SCIM support for title/organization
-def get_scim_users(scim_token):
+def export_to_json(data_name, data):
+    file_name = data_name + '.json'
 
-    site_url = "https://soedemo.stackenterprise.co"
-    scim_url = f"{site_url}/api/scim/v2/Users"
-    headers = {
-        'Authorization': f"Bearer {scim_token}"
-    }
-    params = {
-        "count": 100,
-        "startIndex": 1,
-    }
-
-    items = []
-    while True: # Keep performing API calls until all items are received
-        print(f"Getting 100 results from {scim_url} with startIndex of {params['startIndex']}")
-        response = requests.get(scim_url, headers=headers, params=params)
-        if response.status_code != 200:
-            print(f"API call failed with status code: {response.status_code}.")
-            print(response.text)
-            break
-
-        items_data = response.json().get('Resources')
-        items += items_data
-
-        params['startIndex'] += params['count']
-        if params['startIndex'] > response.json().get('totalResults'):
-            break
-
-    return items
+    with open(file_name, 'w') as f:
+        json.dump(data, f)
+    
+    print(f"Data exported to {file_name}")
 
 
 if __name__ == '__main__':
 
     main()
-
-
-# TODO
-# Next steps:
-    # Set url and apikey via command line arguments (do this for tag metrics too)
-
-    # Tell the user they're going to get prompted to login (hit any key to continue)
-        # and that the window will close automatically when they're done
-    # What % of interactions happen within a department vs. across departments?
-    # What % of interactions are untracked?
-    # Should we track how many people are generating the interactions? (i.e. how many people are asking questions vs. answering questions)
-    # If breaking create_interaction_data() into multiple functions, it fixes the answer comment issue
-
-# Parking lot:
-    # instead of marking untracked interactions, mark the user as "deleted" and org as "unspecified"
-    # split out interacting users and orgs into answering and commenting
-    # ability to turn off comment tracking
-    # when the owner of a question/answer is deleted, ALL interactions are counted as untracked
-        # However, validating the user IDs of answers/comments might discover that many of these 
-        # interactions shouldn't be tracked anyway, thus inflating the number
-
-# SO Internal Baselines:
-    # interaction_count = 3012 (5254 with comments) -- 57% increase
-    # untracked interactions = 7724 (8583 with comments)
-    # questions_count = 8481
-    # answers_count = 9824
-    # comments_count = 12797
-        # 0.7 comments per question/answer
-        # Interations increased by 2242, which is 17.6% of the total comments 
