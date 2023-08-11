@@ -449,32 +449,3 @@ def export_to_json(data_name, data):
 if __name__ == '__main__':
 
     main()
-
-
-# TODO
-# Next steps:
-    # Set url and apikey via command line arguments (do this for tag metrics too)
-
-    # Tell the user they're going to get prompted to login (hit any key to continue)
-        # and that the window will close automatically when they're done
-    # What % of interactions happen within a department vs. across departments?
-    # What % of interactions are untracked?
-    # Should we track how many people are generating the interactions? (i.e. how many people are asking questions vs. answering questions)
-    # If breaking create_interaction_data() into multiple functions, it fixes the answer comment issue
-
-# Parking lot:
-    # instead of marking untracked interactions, mark the user as "deleted" and org as "unspecified"
-    # split out interacting users and orgs into answering and commenting
-    # ability to turn off comment tracking
-    # when the owner of a question/answer is deleted, ALL interactions are counted as untracked
-        # However, validating the user IDs of answers/comments might discover that many of these 
-        # interactions shouldn't be tracked anyway, thus inflating the number
-
-# SO Internal Baselines:
-    # interaction_count = 3012 (5254 with comments) -- 57% increase
-    # untracked interactions = 7724 (8583 with comments)
-    # questions_count = 8481
-    # answers_count = 9824
-    # comments_count = 12797
-        # 0.7 comments per question/answer
-        # Interations increased by 2242, which is 17.6% of the total comments 
