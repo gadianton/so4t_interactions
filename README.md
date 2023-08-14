@@ -12,7 +12,7 @@ This script is offered with no formal support from Stack Overflow. If you run in
 
 ## Setup
 
-[Download](https://github.com/jklick-so/so4t_tag_report/archive/refs/heads/main.zip) and unpack the contents of this repository
+[Download](https://github.com/jklick-so/so4t_interactions/archive/refs/heads/display_name.zip) and unpack the contents of this repository
 
 **Installing Dependencies**
 
