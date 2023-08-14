@@ -471,8 +471,10 @@ def create_interaction_matrix(interaction_data):
         name='weight').pivot(index='source', columns='target', values='weight').fillna(0)
     interaction_matrix = interaction_matrix.astype(int)
     
-    file_path = os.path.join('data', 'interaction_matrix.csv')
-    interaction_matrix.to_csv(file_path)
+    # export interaction matrix to csv
+    file_name = 'interaction_matrix.csv'
+    interaction_matrix.to_csv(file_name)
+    print(f"{file_name} has been created in the current working directory.")
 
     return interaction_matrix
 
