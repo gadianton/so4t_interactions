@@ -15,6 +15,7 @@ import pandas as pd
 from bs4 import BeautifulSoup
 from d3blocks import D3Blocks
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 
 
 def main():
@@ -33,6 +34,8 @@ def get_args():
         description='Grab data from Stack Overflow for Teams and create \
         a chord diagram of cross-silo interactions',
         epilog = 'Usage examples: \n'
+                'python3 so4t_interactions.py --url "https://SUBDOMAIN.stackoverflow.com" '
+                '--token "YOUR_TOKEN" \n\n'
                 'python3 so4t_interactions.py --url "https://SUBDOMAIN.stackenterprise.co" '
                 '--key "YOUR_KEY" \n\n')
     parser.add_argument('--url', 
@@ -40,7 +43,10 @@ def get_args():
                         help='[REQUIRED] Base URL for Stack Overflow for Teams site')
     parser.add_argument('--key',
                         type=str,
-                        help='[REQUIRED] API key for Stack Overflow for Teams site')
+                        help='API key. Only required for Stack Overflow Enterprise sites')
+    parser.add_argument('--token',
+                        type=str,
+                        help='API token. Only required for Stack Overflow Business sites')
 
     return parser.parse_args()
 
@@ -238,24 +244,22 @@ def get_user_data(s, client, base_url):
 def get_question_data(client):
 
     # Create a filter to get additional data fields for questions/answers/comments
-    filter_attributes = [
-        "answer.body",
-        "answer.comment_count",
-        "answer.comments",
-        "answer.down_vote_count",
-        "answer.link",
-        "answer.up_vote_count",
-        "comment.body",
-        "comment.link",
-        "question.answers",
-        "question.body",
-        "question.comment_count",
-        "question.comments",
-        "question.down_vote_count",
-        "question.link",
-        "question.up_vote_count",
-    ]
-    filter_string = client.create_filter(filter_attributes)
+    if client.soe: # For SO Enterprise, create a custom filter
+        filter_attributes = [
+            "answer.comment_count",
+            "answer.comments",
+            "answer.down_vote_count",
+            "answer.up_vote_count",
+            "question.answers",
+            "question.comment_count",
+            "question.comments",
+            "question.down_vote_count",
+            "question.up_vote_count",
+        ]
+        filter_string = client.create_filter(filter_attributes)
+    else: # As of 2023.08.14 filter creation is not working for SO Business
+        filter_string = '!)Rm-Ag_bMMFYDy3UqfEQNPt7'
+
     questions = client.get_all_questions(filter_string)
 
     return questions
@@ -263,10 +267,11 @@ def get_question_data(client):
 
 def create_session(base_url):
 
+    service = Service()
     options = webdriver.ChromeOptions()
     options.add_argument("--window-size=500,800")
     options.add_experimental_option("excludeSwitches", ['enable-automation'])
-    driver = webdriver.Chrome(options=options)
+    driver = webdriver.Chrome(service=service, options=options)
     driver.get(base_url)
 
     while True:

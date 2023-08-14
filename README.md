@@ -6,7 +6,7 @@ All data obtained via the API is handled locally on the device from which the sc
 This script is offered with no formal support from Stack Overflow. If you run into issues using the script, please [open an issue](https://github.com/jklick-so/so4t_interactions/issues) and/or reach out to the person who provided it to you. You are also welcome to edit the script to suit your needs.
 
 ## Requirements
-* Stack Overflow Enterprise and a user account with admin permissions
+* Stack Overflow Enterprise or Business and a user account with admin permissions
 * "Department" assertion enabled in SAML configuration (admin settings)
 * Python 3.x ([download](https://www.python.org/downloads/))
 * Operating system: Linux, MacOS, or Windows
@@ -24,17 +24,20 @@ This script is offered with no formal support from Stack Overflow. If you run in
 
 **API Authentication**
 
-For Stack Overflow Enteprise, documentation for creating a key can be found within your instance, at this url: `https://[your_site]/api/docs/authentication`
+For the Business tier, instructions for creating a personal access token (PAT) can be found in [this KB article](https://stackoverflow.help/en/articles/4385859-stack-overflow-for-teams-api).
+
+* For Enteprise, documentation for creating the key and token can be found within your instance, at this url: `https://[your_site]/api/docs/authentication`.
 
 
 ## Usage
 In a terminal window, navigate to the directory where you unpacked the script. 
 Run the script using the following format, replacing the URL, token, and/or key with your own:
-`python3 so4t_interactions.py --url "https://SUBDOMAIN.stackenterprise.co" --key "YOUR_KEY" --token "YOUR_TOKEN"`
+- Business: `python3 so4t_interactions.py --url "https://stackoverflowteams.com/c/TEAM-NAME" --token "YOUR_TOKEN"`
+- Enterprise: `python3 so4t_interactions.py --url "https://SUBDOMAIN.stackenterprise.co" --key "YOUR_KEY"`
 
-At the beginning of the script, a small Chrome window will appear, prompting you to login to your instance of Stack Overflow Enterpise. After logging in, the Chrome window will disappear and the script will proceed in the terminal window. This is necessary in order to scrape additional data from Stack Overflow for Teams that is not available via the API.
+At the beginning of the script, a small Chrome window will appear, prompting you to login to your instance of Stack Overflow Enterpise. After logging in, the Chrome window will disappear and the script will proceed in the terminal window. Creating a login session necessary in order to gather additional data from Stack Overflow for Teams that is not available via the API.
 
-The script can take several minutes to run, particularly as it gathers data via the API. As it runs, it will continue to update the terminal window with the tasks it's performing.
+The script can take several minutes to run. As it runs, it will continue to update the terminal window with the tasks it's performing.
 
 When the script completes, it will indicate the chord diagram has been created, and will provide the path to the file. The file will be saved in the same directory as the script.
 
