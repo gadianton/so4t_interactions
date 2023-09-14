@@ -505,8 +505,7 @@ def create_chord_diagram(interaction_matrix):
 # Waiting on SCIM support for title/organization
 def get_scim_users(scim_token, base_url):
 
-    site_url = base_url
-    scim_url = f"{site_url}/api/scim/v2/Users"
+    scim_url = f"{base_url}/api/scim/v2/Users"
     headers = {
         'Authorization': f"Bearer {scim_token}"
     }
