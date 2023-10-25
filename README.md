@@ -49,7 +49,7 @@ When the script completes, it will indicate the chord diagram has been created, 
 
 There are some additional arguments you can add to the command line to customize the script's behavior, which are described below. All arguments (and instructions) can also be found by running the `--help` argument: `python3 so4t_interactions.py --help`
 
-### `--team-rename "PATH_TO_CSV"`
+### `--team-rename`
 
 Sometimes the team names obtained from the identity provider (via SAML) aren't ideal. Examples:
 * Too verbose: "PMO - Project Management Office - CIO Special Projects"
