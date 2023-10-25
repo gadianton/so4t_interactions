@@ -1,5 +1,8 @@
 # Stack Overflow for Teams Interactions (so4t_interactions)
-An API script for Stack Overflow for Teams that creates a chord diagram ([example](https://github.com/jklick-so/so4t_interactions/blob/main/Examples/chord_diagram.png)), demonstrating how teams are interacting within the product.
+An API script for Stack Overflow for Teams that creates a chord diagram, demonstrating how teams are interacting within the product.
+
+Example chord diagram:
+![Example chord diagram](https://github.com/jklick-so/so4t_interactions/blob/main/Examples/chord_diagram.png)
 
 
 ## Requirements
