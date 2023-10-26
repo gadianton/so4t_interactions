@@ -49,9 +49,20 @@ When the script completes, it will indicate the chord diagram has been created, 
 
 There are some additional arguments you can add to the command line to customize the script's behavior, which are described below. All arguments (and instructions) can also be found by running the `--help` argument: `python3 so4t_interactions.py --help`
 
+### `--remove-team-numbers`
+
+In many organizations, team names aren't as simple as "Engineering" or "Product Management". Instead, they're often something like "Eng1" or "PM2.6". This can be problematic when it creates too much granularity for the chord diagram. 
+
+The `--remove-team-numbers` argument allows you to easily remove the team number from the team names. Example: "Eng1" and "Eng2.1" would both be renamed to simply "Eng", thus consolidating the two teams into one for the chord diagram.
+
+Example usage:
+`python3 so4t_interactions.py --url "https://SUBDOMAIN.stackenterprise.co" --key "YOUR_KEY" --remove-team-numbers`
+
+> NOTE: this argument does not have compatibility with the `--team-rename` argument. Choose one or the other.
+
 ### `--team-rename`
 
-Sometimes the team names obtained from the identity provider (via SAML) aren't ideal. Examples:
+This is a more powerful method of changing team names. Sometimes the team names obtained from the identity provider (via SAML) aren't ideal for a variety of reasons. Examples:
 * Too verbose: "PMO - Project Management Office - CIO Special Projects"
 * Too generic: "Team 1"
 * Too specific: "Team 1 - Argentina"
@@ -64,6 +75,11 @@ The `--team-rename` argument allows you to provide a CSV file ([template here](h
 
 Example usage:
 `python3 so4t_interactions.py --url "https://SUBDOMAIN.stackenterprise.co" --key "YOUR_KEY" --team-rename "PATH_TO_CSV"`
+
+> NOTE: this argument does not have compatibility with the `--remove-team-number` argument. Choose one or the other.
+
+
+
 
 ## Support, security, and legal
 Disclaimer: the creator of this project works at Stack Overflow, but it is a labor of love that comes with no formal support from Stack Overflow. 

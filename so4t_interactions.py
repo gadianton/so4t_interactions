@@ -49,7 +49,12 @@ def get_args():
                         help='API token. Only required for Stack Overflow Business sites')
     parser.add_argument('--team-rename',
                         type=str,
-                        help='CSV file containing changes to team names')
+                        help='CSV file containing changes to team names. Not to be used with '
+                        '--remove-team-numbers')
+    parser.add_argument('--remove-team-numbers',
+                        action='store_true',
+                        help='Remove team numbers from team names. Not to be used with '
+                        '--team-rename')
 
     return parser.parse_args()
 
@@ -78,7 +83,9 @@ def data_collector(args):
     if args.team_rename:
         team_rename = pd.read_csv(args.team_rename)
         team_rename = team_rename.set_index('old_team_name').to_dict()['new_team_name']
-        users = get_user_data(scraper, client, team_rename)
+        users = get_user_data(scraper, client, team_rename=True)
+    elif args.remove_team_numbers:
+        users = get_user_data(scraper, client, team_numbers=False)
     else: # if no team rename file is provided
         users = get_user_data(scraper, client)
 
@@ -88,7 +95,7 @@ def data_collector(args):
     return users, questions
 
 
-def get_user_data(scraper, client, team_rename=None):
+def get_user_data(scraper, client, team_rename=False, team_numbers=True):
 
     users = client.get_all_users()
 
@@ -112,6 +119,11 @@ def get_user_data(scraper, client, team_rename=None):
                 user['team'] = team_rename[team]
             except KeyError: # if the team is not in the team_rename dict
                 pass
+        elif team and not team_numbers:
+            # Remove team numbers from the end of team names
+            # Examples: PM63 -> PM, Engineering 2.1 -> Engineering
+            while not user['team'][-1].isalpha():
+                user['team'] = user['team'][:-1]
 
     print(f"Number of users without a `team` attribute: {no_team_count} out of {len(users)}")
     export_to_json('users', users)
