@@ -83,7 +83,7 @@ def data_collector(args):
     if args.team_rename:
         team_rename = pd.read_csv(args.team_rename)
         team_rename = team_rename.set_index('old_team_name').to_dict()['new_team_name']
-        users = get_user_data(scraper, client, team_rename=True)
+        users = get_user_data(scraper, client, team_rename=team_rename)
     elif args.remove_team_numbers:
         users = get_user_data(scraper, client, team_numbers=False)
     else: # if no team rename file is provided
