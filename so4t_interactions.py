@@ -7,7 +7,6 @@ If you run into difficulties, reach out to the person who provided you with this
 import argparse
 import json
 import os
-import pickle
 
 # Third-party library imports
 import pandas as pd
@@ -15,7 +14,7 @@ from d3blocks import D3Blocks
 
 # Local libraries
 from so4t_api_v2 import V2Client
-from so4t_scraper import WebScraper
+from so4t_api_v3 import V3Client
 
 
 def main():
@@ -37,16 +36,16 @@ def get_args():
                 'python3 so4t_interactions.py --url "https://SUBDOMAIN.stackoverflow.com" '
                 '--token "YOUR_TOKEN" \n\n'
                 'python3 so4t_interactions.py --url "https://SUBDOMAIN.stackenterprise.co" '
-                '--key "YOUR_KEY" \n\n')
+                '--key "YOUR_KEY --token "YOUR_TOKEN" \n\n')
     parser.add_argument('--url', 
                         type=str, 
                         help='[REQUIRED] Base URL for Stack Overflow for Teams site')
+    parser.add_argument('--token',
+                        type=str,
+                        help='[REQUIRED] API token')
     parser.add_argument('--key',
                         type=str,
                         help='API key. Only required for Stack Overflow Enterprise sites')
-    parser.add_argument('--token',
-                        type=str,
-                        help='API token. Only required for Stack Overflow Business sites')
     parser.add_argument('--team-rename',
                         type=str,
                         help='CSV file containing changes to team names. Not to be used with '
@@ -61,71 +60,52 @@ def get_args():
 
 def data_collector(args):
 
-    # Create a scraper session, or load a previously saved session
-    session_file = 'so4t_session'
-    try:
-        with open(session_file, 'rb') as f:
-            scraper = pickle.load(f)
-        if scraper.base_url != args.url or not scraper.test_session():
-            raise FileNotFoundError # force creation of new session
-        else:
-            print('Using previously saved session...')
-    except FileNotFoundError:
-        print('Previous scraper session does not exist or is expired. Creating new session...')
-        scraper = WebScraper(args.url)
-        with open(session_file, 'wb') as f:
-            pickle.dump(scraper, f)
-        print(f"Scraper session saved to file: '{session_file}'")
-
-    client = V2Client(args)
+    # Create API clients
+    v2client = V2Client(args)
+    v3client = V3Client(args)
 
     # Get user data
     if args.team_rename:
         team_rename = pd.read_csv(args.team_rename)
         team_rename = team_rename.set_index('old_team_name').to_dict()['new_team_name']
-        users = get_user_data(scraper, client, team_rename=True)
+        users = get_user_data(v3client, team_rename=team_rename)
     elif args.remove_team_numbers:
-        users = get_user_data(scraper, client, team_numbers=False)
+        users = get_user_data(v3client, team_numbers=False)
     else: # if no team rename file is provided
-        users = get_user_data(scraper, client)
+        users = get_user_data(v3client)
 
     # Get question data
-    questions = get_question_data(client)
+    questions = get_question_data(v2client)
 
     return users, questions
 
 
-def get_user_data(scraper, client, team_rename=False, team_numbers=True):
+def get_user_data(client, team_rename=None, team_numbers=True):
 
     users = client.get_all_users()
 
     # Exclude users with an ID of less than 1 (i.e. Community user and user groups)
-    users = [user for user in users if user['user_id'] > 1]
+    users = [user for user in users if user['id'] > 1]
 
     if 'soedemo' in client.api_url: # for internal testing environment
-        users = [user for user in users if user['user_id'] > 28000]
+        users = [user for user in users if user['id'] > 28000]
 
-    no_team_count = 0 # keep track of users without a team
-    for user in users:
-        title, team = scraper.get_user_title_and_team(user['user_id'])
-        if not team:
-            no_team_count += 1
-
-        user['title'] = title
-        user['team'] = team
-
-        if team and team_rename:
+    if team_rename:
+        for user in users:
             try:
-                user['team'] = team_rename[team]
-            except KeyError: # if the team is not in the team_rename dict
+                user['department'] = team_rename[user['department']]
+            except KeyError:
                 pass
-        elif team and not team_numbers:
-            # Remove team numbers from the end of team names
-            # Examples: PM63 -> PM, Engineering 2.1 -> Engineering
-            while not user['team'][-1].isalpha():
-                user['team'] = user['team'][:-1]
+    elif team_numbers:
+        # Remove team numbers from the end of team names
+        # Examples: PM63 -> PM, Engineering 2.1 -> Engineering
+        for user in users:
+            try:
+                while not user['department'][-1].isalpha():
+                    user['department'] = user['department'][:-1]
+            except TypeError: # if user['department'] is None
+                pass
 
-    print(f"Number of users without a `team` attribute: {no_team_count} out of {len(users)}")
     export_to_json('users', users)
 
     return users
@@ -253,6 +233,7 @@ def create_interaction_data(content_list, users, questions):
 def validate_user_id(user):
     # If the user doesn't exist (e.g. deleted), the user_id will not be present
     # Likewise, the user_type will be "does_not_exist"
+    # Since this user data is from API v2, it uses a 'user_id' key instead of 'id'
 
     try:
         return user['user_id']
@@ -261,10 +242,11 @@ def validate_user_id(user):
     
 
 def find_user_team(user_id, users):
+    # Since `users` is from API v3, it uses an 'id' key instead of 'user_id'
 
-    search_result = next((item for item in users if int(item['user_id']) == user_id), None)
+    search_result = next((item for item in users if int(item['id']) == user_id), None)
     try:
-        user_team = search_result['team']
+        user_team = search_result['department']
     except TypeError: # if None is returned from the search_result
         user_team = search_result
     
@@ -346,7 +328,8 @@ def create_chord_diagram(interaction_matrix):
                     opacity='source',
                     cmap='Set1',
                     filepath=None,
-                    notebook=False)
+                    notebook=False,
+                    save_button=False)
 
     # change size and position of the svg
     modified_html = original_html.replace('-width / 2, -height / 2, width, height',
@@ -355,37 +338,6 @@ def create_chord_diagram(interaction_matrix):
         f.write(modified_html)
 
     print("Chord diagram created. You can find it in the current working directory.")
-
-
-# [ON HOLD] Waiting on SCIM support for title/team
-# def get_scim_users(scim_token, base_url):
-
-#     scim_url = f"{base_url}/api/scim/v2/Users"
-#     headers = {
-#         'Authorization': f"Bearer {scim_token}"
-#     }
-#     params = {
-#         "count": 100,
-#         "startIndex": 1,
-#     }
-
-#     items = []
-#     while True: # Keep performing API calls until all items are received
-#         print(f"Getting 100 results from {scim_url} with startIndex of {params['startIndex']}")
-#         response = requests.get(scim_url, headers=headers, params=params)
-#         if response.status_code != 200:
-#             print(f"API call failed with status code: {response.status_code}.")
-#             print(response.text)
-#             break
-
-#         items_data = response.json().get('Resources')
-#         items += items_data
-
-#         params['startIndex'] += params['count']
-#         if params['startIndex'] > response.json().get('totalResults'):
-#             break
-
-#     return items
 
 
 def export_to_json(data_name, data):

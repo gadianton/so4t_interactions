@@ -9,8 +9,6 @@ Example chord diagram:
 ## Requirements
 * Python 3.9 or higher ([download](https://www.python.org/downloads/))
 * Operating system: Linux, MacOS, or Windows
-* Chrome web browser
-* A user account on Stack Overflow Enterprise or Business
 * "Department" assertion enabled in SAML configuration (admin settings)
 
 
@@ -25,9 +23,17 @@ Example chord diagram:
 * Install the dependencies: `pip3 install -r requirements.txt`
 
 **API Authentication**
-For the Business tier, you'll need an API token. For Enterprise, you'll need to obtain both an API key.
-* For the Business tier, instructions for creating a personal access token (PAT) can be found in [this KB article](https://stackoverflow.help/en/articles/4385859-stack-overflow-for-teams-api).
-* For Enteprise, documentation for creating the key and token can be found within your instance, at this url: `https://[your_site]/api/docs/authentication`.
+For the Basic and Business tiers, you'll need an API token. For Enterprise, you'll need to obtain both an API key and an API token.
+
+* For Basic or Business, instructions for creating a personal access token (PAT) can be found in [this KB article](https://stackoverflow.help/en/articles/4385859-stack-overflow-for-teams-api).
+* For Enteprise, documentation for creating the key and token can be found within your instance, at this url: `https://[your_site]/api/docs/authentication`
+
+Creating an access token for Enterpise can sometimes be tricky for people who haven't done it before. Here are some (hopefully) straightforward instructions:
+* Go to the page where you created your API key. Take note of the "Client ID" associated with your API key.
+* Go to the following URL, replacing the base URL, the `client_id`, and base URL of the `redirect_uri` with your own:
+`https://YOUR.SO-ENTERPRISE.URL/oauth/dialog?client_id=111&redirect_uri=https://YOUR.SO-ENTERPRISE.URL/oauth/login_success`
+* You may be prompted to login to Stack Overflow Enterprise, if you're not already. Either way, you'll be redirected to a page that simply says "Authorizing Application"
+* In the URL of that page, you'll find your access token. Example: `https://YOUR.SO-ENTERPRISE.URL/oauth/login_success#access_token=YOUR_TOKEN`
 
 
 ## Basic Usage
@@ -77,8 +83,6 @@ Example usage:
 `python3 so4t_interactions.py --url "https://SUBDOMAIN.stackenterprise.co" --key "YOUR_KEY" --team-rename "PATH_TO_CSV"`
 
 > NOTE: this argument does not have compatibility with the `--remove-team-number` argument. Choose one or the other.
-
-
 
 
 ## Support, security, and legal
